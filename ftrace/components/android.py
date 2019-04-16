@@ -204,11 +204,12 @@ class Android(FTraceComponent):
 
         # These are times when SF begins compositing.
         vsync_events = self.event_intervals(name='VSYNC-sf', interval=interval)
+
         if not vsync_events:
             vsync_events = self.event_intervals(name='VSYNC', interval=interval)
 
-        for vsync_event_a, vsync_event_b in zip(vsync_events, vsync_events[1:]) :               
-            frames_presented = len(self.event_intervals('postFramebuffer', 
+        for vsync_event_a, vsync_event_b in zip(vsync_events, vsync_events[1:]) :
+            frames_presented = len(self.event_intervals('postFramebuffer',
                                                         interval=vsync_event_a.interval))
             # Below required to skip interval when we had nothing to do.
             # As this event 'toggles' every VSYNC when SurfaceFlinger has work

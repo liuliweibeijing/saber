@@ -58,11 +58,11 @@ class Clock(FTraceComponent):
         self._parse_clock_enable_disable_events()
 
     @property
-    @requires('clock_set_rate')
+    @requires('clk_set_rate')
     def names(self):
         return set(self._freq_events_by_clock.keys())
 
-    @requires('clock_set_rate')
+    @requires('clk_set_rate')
     def frequency_intervals(self, clock, interval=None):
         """Returns frequency intervals for specified `clock`.
         For list of clocks, dump `names`
@@ -79,7 +79,7 @@ class Clock(FTraceComponent):
             return self._freq_events_handler()[clock].slice(interval=interval)
 
 
-    @requires('clock_disable', 'clock_enable')
+    @requires('clk_disable', 'clk_enable')
     def clock_intervals(self, clock, state=None, interval=None):
         """Returns clock (enabled/disabled) intervals for specified `clock`.
         For list of clocks, dump `names`
@@ -111,7 +111,7 @@ class Clock(FTraceComponent):
             for clk_event in events:
                 # Yes, keep inverted as we track when change occurs
                 state = ClockState.DISABLED if  \
-                    clk_event.data.state \
+                    clk_event.tracepoint == 'clk_disable' \
                     else ClockState.ENABLED
                 interval = Interval(last_timestamp, clk_event.timestamp)
                 clk_interval = ClkInterval(clock, state, interval)
@@ -120,8 +120,8 @@ class Clock(FTraceComponent):
             # again, we need some closure.
             if events:
                 # not a change, so leave as is.
-                state = ClockState.ENABLED if  \
-                    clk_event.data.state \
+                state = ClockState.ENABLED if \
+                    clk_event.tracepoint == 'clk_enable' \
                     else ClockState.DISABLED
                 end_interval = ClkInterval(
                     clock=clock,
@@ -141,9 +141,9 @@ class Clock(FTraceComponent):
             last_rate, last_timestamp = -1.0, self._trace.interval.start
             for freq_event in events:
                 interval = Interval(last_timestamp, freq_event.timestamp)
+                last_rate = freq_event.data.split(' ')[1]
                 freq_interval = FreqInterval(clock, last_rate, interval)
                 self._freq_intervals_by_clock[clock].append(freq_interval)
-                last_rate = freq_event.data.state
                 last_timestamp = freq_event.timestamp
             # again, we need some closure.
             end_interval = FreqInterval(
@@ -161,23 +161,23 @@ class Clock(FTraceComponent):
     def _parse_clock_enable_disable_events(self):
         """Parse clock frequency intervals"""
         self._clk_events_by_clock = defaultdict(EventList)
-        self._clock_enable_disable_tracepoints = set(['clock_disable', 'clock_enable'])
+        self._clock_enable_disable_tracepoints = set(['clk_disable', 'clk_enable'])
         def clock_enable_disable_events_gen():
             filter_func = lambda event: event.tracepoint in self._clock_enable_disable_tracepoints
             for event in filter(filter_func, self._events):
                     yield event
 
         for event in clock_enable_disable_events_gen():
-            self._clk_events_by_clock[event.data.clk].append(event)
+            self._clk_events_by_clock[event.data].append(event)
 
     def _parse_clock_events(self):
         """Parse clock frequency intervals"""
         self._freq_events_by_clock = defaultdict(EventList)
 
         def clock_events_gen():
-            filter_func = lambda event: event.tracepoint == 'clock_set_rate'
+            filter_func = lambda event: event.tracepoint == 'clk_set_rate'
             for event in filter(filter_func, self._events):
                     yield event
 
         for event in clock_events_gen():
-            self._freq_events_by_clock[event.data.clk].append(event)
+            self._freq_events_by_clock[event.data.split(' ')[0]].append(event)

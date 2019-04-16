@@ -540,12 +540,23 @@ class CPU(FTraceComponent):
                 self._tasks_by_cpu[cpu].add(prev_task)
 
             elif tracepoint == 'sched_wakeup':
-                target_cpu = data.target_cpu
+                tmpStr = data.split('comm=');
+                tmpStr1 = tmpStr[1].split('pid=', 1)
+                tmpComm = tmpStr1[0]
+                tmpStr2 = tmpStr1[1].split('prio=', 1)
+                tmpPid = tmpStr2[0]
+
+                tmpStr3 = tmpStr2[1].split('target_cpu=', 1)
+                tmpPrio = tmpStr3[0]
+                tmpTargetCpu = tmpStr3[1]
+
+                target_cpu = tmpTargetCpu
+
                 cpu = event.cpu
                 # When a task wakeup occurs, its placed on run-queue (RQ)
                 # but may not be RUNNING right-away (depending on priority)
                 # during this time & if anything is runnable
-                task = Task(name=data.comm, pid=data.pid, prio=data.prio)
+                task = Task(name=tmpComm, pid=tmpPid, prio=tmpPrio)
                 # woken-up task can run right-away if nothing is on queue.
                 # we handle this later.
                 
@@ -574,9 +585,9 @@ class CPU(FTraceComponent):
                 except KeyError:
                     pass
                 runnable_tasks[target_cpu].add(task)
-                if data.success: # most likely true
-                    last_seen_timestamps[target_cpu][task] = timestamp
-                    self._tasks_by_cpu[target_cpu].add(task)
+                # if data.success: # most likely true
+                last_seen_timestamps[target_cpu][task] = timestamp
+                self._tasks_by_cpu[target_cpu].add(task)
 
 
             num_runnable = len(runnable_tasks[cpu])

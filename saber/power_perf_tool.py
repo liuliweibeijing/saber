@@ -26,7 +26,11 @@ BIG_CPUS = ftrace.common.unpack_bitmap(CLUSTER_CORE_MASK[CLUSTER_CFG.index('BIG'
 SUPPER_CPUS = ftrace.common.unpack_bitmap(CLUSTER_CORE_MASK[CLUSTER_CFG.index('SUPPER')])
 ALL_CPUS = (LITTLE_CPUS.union(BIG_CPUS)).union(SUPPER_CPUS)
 
+ABS_DIR = os.getcwd() + '/' + 'OUT'
+
 XML_FILE_NAME = 'systrace-{DATE}.xlsx'.format(DATE=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time())))
+
+ABS_PATH = ABS_DIR + '/' + XML_FILE_NAME
 
 ############################### cpu config. wo need check################################
 
@@ -81,9 +85,10 @@ if __name__ == '__main__':
     df_clk = DataFrame(index=trace.clock.names, columns = ['0', 'UNKNOWN'])
     df_clk.fillna(0, inplace=True)
 
-    if os.path.exists(XML_FILE_NAME):
-        os.remove(XML_FILE_NAME)
-    writer = pd.ExcelWriter(XML_FILE_NAME, engine='openpyxl')
+    if False == os.path.exists(ABS_DIR):
+        os.mkdir(ABS_DIR)
+
+    writer = pd.ExcelWriter(ABS_PATH, engine='openpyxl')
     for cpu in ALL_CPUS: # assumes 8-cores
         # top tasks
         df_tasks = DataFrame(columns=['Name', 'PID', 'Priority', 'Exec Time (s)'])
@@ -99,8 +104,8 @@ if __name__ == '__main__':
 
         df_tasks.sort_values(['Exec Time (s)'], inplace=True, ascending=False)
         df_tasks.set_index('PID', inplace=True)
-        if os.path.exists(XML_FILE_NAME):
-            writer = pd.ExcelWriter(XML_FILE_NAME, mode='a', engine='openpyxl')
+        if os.path.exists(ABS_PATH):
+            writer = pd.ExcelWriter(ABS_PATH, mode='a', engine='openpyxl')
         df_tasks.to_excel(writer, sheet_name='top_tasks_cpu{cpu}'.format(cpu=cpu))
         writer.sheets['top_tasks_cpu{cpu}'.format(cpu=cpu)].column_dimensions['B'].width=25
         writer.sheets['top_tasks_cpu{cpu}'.format(cpu=cpu)].column_dimensions['D'].width=15

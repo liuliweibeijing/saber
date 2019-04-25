@@ -30,7 +30,6 @@ ABS_DIR = os.getcwd() + '/' + 'OUT'
 
 XML_FILE_NAME = 'systrace-{DATE}.xlsx'.format(DATE=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time())))
 
-ABS_PATH = ABS_DIR + '/' + XML_FILE_NAME
 
 ############################### cpu config. wo need check################################
 
@@ -88,6 +87,9 @@ if __name__ == '__main__':
     if False == os.path.exists(ABS_DIR):
         os.mkdir(ABS_DIR)
 
+    path, file = os.path.split(args.file)
+
+    ABS_PATH = ABS_DIR + '/' + file.split('.')[0] + '_' + XML_FILE_NAME
     writer = pd.ExcelWriter(ABS_PATH, engine='openpyxl')
     for cpu in ALL_CPUS: # assumes 8-cores
         # top tasks
@@ -96,8 +98,8 @@ if __name__ == '__main__':
             if task.pid != 0:
                 df_tasks.loc[task.pid] = [task.name,
                     task.pid, task.prio,
-                        trace.cpu.task_time(task=task, cpu=cpu,
-                                            interval=None)]
+                        trace.cpu.task_time(task=task, cpu=cpu, interval=None)]
+
         busy_time = trace.cpu.busy_time(cpu=cpu, interval=None)
         if busy_time != 0.0:
             df_tasks['Exec Time %'] = df_tasks['Exec Time (s)'] / busy_time
@@ -111,6 +113,8 @@ if __name__ == '__main__':
         writer.sheets['top_tasks_cpu{cpu}'.format(cpu=cpu)].column_dimensions['D'].width=15
         writer.sheets['top_tasks_cpu{cpu}'.format(cpu=cpu)].column_dimensions['E'].width=15
         writer.save()
+
+    # LPM
     for cpu in range(8):
         for lpm in trace.cpu.lpm_intervals(cpu=cpu, interval=None):
             df_lpm.loc[cpu, LPM_states[lpm.state]] += lpm.interval.duration

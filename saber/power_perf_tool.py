@@ -7,7 +7,9 @@ from ftrace import Ftrace, Interval
 from pandas import Series, DataFrame, MultiIndex, Timestamp
 from pandas.tseries.offsets import Micro
 import pandas as pd
-import xlsxwriter
+import openpyxl
+from openpyxl import load_workbook
+from openpyxl.styles import Font, colors, Alignment, numbers
 import time
 
 
@@ -91,6 +93,7 @@ if __name__ == '__main__':
 
     ABS_PATH = ABS_DIR + '/' + file.split('.')[0] + '_' + XML_FILE_NAME
     writer = pd.ExcelWriter(ABS_PATH, engine='openpyxl')
+
     for cpu in ALL_CPUS: # assumes 8-cores
         # top tasks
         df_tasks = DataFrame(columns=['Name', 'PID', 'Priority', 'Exec Time (s)'])
@@ -154,27 +157,23 @@ if __name__ == '__main__':
         if df_clk.loc[clk].sum() != total_duration: # unaccounted.
             df_clk.loc[clk, 'UNKNOWN'] = total_duration - df_clk.loc[clk].sum()
 
-    df_clk = df_clk / total_duration
+
+    df_clk = df_clk/total_duration
+
+    # for a
+    for indexs in df_clk.columns:
+        print df_clk[indexs]
     #df_clk.sort_values(axis=1, inplace=True)
     df_clk.to_excel(writer, sheet_name='CLOCK')
-    writer.sheets['CLOCK'].column_dimensions['A'].width = 25
-    writer.sheets['CLOCK'].column_dimensions['B'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['C'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['D'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['E'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['F'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['G'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['H'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['I'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['J'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['K'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['L'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['M'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['N'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['O'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['P'].width = 15
-    writer.sheets['CLOCK'].column_dimensions['Q'].width = 15
     writer.save()
+    # set disaplay format for percent
+    wb = load_workbook(ABS_PATH)
+    a_sheet = wb.get_sheet_by_name('CLOCK')
+    a_sheet.row_dimensions[2].height = 40
+    a_sheet['C4'] = '0.77'
+    a_sheet['C4'].number_format=''
+    a_sheet.sheet_properties.tabColor = "1072BA"
+    a_sheet['B4']=1000
 
     # frame rate
     frame_durations = Series((event.interval.duration for event in trace.android.render_frame_intervals(interval=None)))
@@ -202,7 +201,6 @@ if __name__ == '__main__':
         if not i in FREQ_ALL_CORES:
             FREQ_ALL_CORES.append(i)
     FREQ_ALL_CORES.sort()
-    print FREQ_ALL_CORES
 
     df_freq = DataFrame(index=ALL_CPUS, columns=FREQ_ALL_CORES)
 
@@ -213,4 +211,25 @@ if __name__ == '__main__':
             for freq in trace.cpu.frequency_intervals(cpu=cpu, interval=busy_interval.interval):
                 df_freq.loc[cpu, freq.frequency] += freq.interval.duration
     df_freq.to_excel(writer, sheet_name='CoreFreqStats')
+    writer.save()
+
+    #ddr freq analysis
+    ddr_freq_file = os.getcwd() + '/' + 'DDR' + '/' + 'data' + '/' + 'ddr_freq_1557456277.txt'
+
+    ddr_freq_data = [];
+
+    with open(ddr_freq_file) as f:
+        for line in f.readlines():
+            ddr_freq_tmp_data = line.split(':');
+            if ddr_freq_tmp_data.__len__() != 2 :
+                continue
+            time = ddr_freq_tmp_data[0];
+            freq = ddr_freq_tmp_data[1];
+
+            ddr_freq_data.append((int(time), int(freq)));
+
+    ddr_freq = DataFrame(ddr_freq_data, columns=['time','freq'])
+    ddr_freq.to_excel(writer, sheet_name='DDRFreq')
+    writer.sheets['DDRFreq'].column_dimensions['B'].width = 25
+    writer.sheets['DDRFreq'].column_dimensions['C'].width = 25
     writer.save()

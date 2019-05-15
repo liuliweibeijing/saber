@@ -31,7 +31,7 @@ ALL_CPUS = (LITTLE_CPUS.union(BIG_CPUS)).union(SUPPER_CPUS)
 ABS_DIR = os.getcwd() + '/' + 'OUT'
 
 XML_FILE_NAME = 'systrace-{DATE}.xlsx'.format(DATE=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time())))
-
+SYSTRACE_FILE =ABS_DIR + '/' + 'systrace.html'
 
 ############################### cpu config. wo need check################################
 
@@ -59,12 +59,20 @@ def parse_file(filepath):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Power/Performance analysis of HMP platforms!')
 
-    parser.add_argument('-f', '--file', dest='file',
-                        help='File (systrace/ftrace log) to parse')
+    parser.add_argument('-t', '--time', dest='time',
+                        help='hope to capture how long logs')
 
     args = parser.parse_args()
 
-    trace = Ftrace(args.file)
+    #get all logs for analysis
+    os.system('python getPhoneLogs.py -t ' + args.time)
+
+    if os.path.exists(SYSTRACE_FILE):
+        trace = Ftrace(SYSTRACE_FILE)
+    else:
+        print 'error'
+        exit(1)
+
     total_duration = trace.duration
 
     # Multi-core usage
@@ -89,9 +97,8 @@ if __name__ == '__main__':
     if False == os.path.exists(ABS_DIR):
         os.mkdir(ABS_DIR)
 
-    path, file = os.path.split(args.file)
 
-    ABS_PATH = ABS_DIR + '/' + file.split('.')[0] + '_' + XML_FILE_NAME
+    ABS_PATH = ABS_DIR + '/' + 'RESULT' + '_' + XML_FILE_NAME
     writer = pd.ExcelWriter(ABS_PATH, engine='openpyxl')
 
     for cpu in ALL_CPUS: # assumes 8-cores
@@ -213,12 +220,16 @@ if __name__ == '__main__':
     df_freq.to_excel(writer, sheet_name='CoreFreqStats')
     writer.save()
 
-    #ddr freq analysis
-    ddr_freq_file = os.getcwd() + '/' + 'DDR' + '/' + 'data' + '/' + 'ddr_freq_1557456277.txt'
+    # find ddr log
+    files = os.listdir('./data/tmp/')
+    for file in files:
+        if 'ddr' in file:
+            ddr_freq_file = file
+            print 'ddr log is ' + ddr_freq_file
 
     ddr_freq_data = [];
 
-    with open(ddr_freq_file) as f:
+    with open(os.getcwd() + '/' + 'data/tmp/' + ddr_freq_file) as f:
         for line in f.readlines():
             ddr_freq_tmp_data = line.split(':');
             if ddr_freq_tmp_data.__len__() != 2 :
@@ -232,4 +243,28 @@ if __name__ == '__main__':
     ddr_freq.to_excel(writer, sheet_name='DDRFreq')
     writer.sheets['DDRFreq'].column_dimensions['B'].width = 25
     writer.sheets['DDRFreq'].column_dimensions['C'].width = 25
+    writer.save()
+
+    # find snoc  log
+    for file in files:
+        if 'snoc' in file:
+            snoc_freq_file = file
+            print 'snoc log is ' + snoc_freq_file
+
+    snoc_freq_data = [];
+
+    with open(os.getcwd() + '/' + 'data/tmp/' + snoc_freq_file) as f:
+        for line in f.readlines():
+            snoc_freq_tmp_data = line.split(':');
+            if snoc_freq_tmp_data.__len__() != 2 :
+                continue
+            time = snoc_freq_tmp_data[0];
+            freq = snoc_freq_tmp_data[1];
+
+            snoc_freq_data.append((int(time), int(freq)));
+
+    ddr_freq = DataFrame(ddr_freq_data, columns=['time','freq'])
+    ddr_freq.to_excel(writer, sheet_name='SNOCFreq')
+    writer.sheets['SNOCFreq'].column_dimensions['B'].width = 25
+    writer.sheets['SNOCFreq'].column_dimensions['C'].width = 25
     writer.save()

@@ -263,8 +263,32 @@ if __name__ == '__main__':
 
             snoc_freq_data.append((int(time), int(freq)));
 
-    ddr_freq = DataFrame(ddr_freq_data, columns=['time','freq'])
-    ddr_freq.to_excel(writer, sheet_name='SNOCFreq')
+    snoc_freq = DataFrame(snoc_freq_data, columns=['time','freq'])
+    snoc_freq.to_excel(writer, sheet_name='SNOCFreq')
     writer.sheets['SNOCFreq'].column_dimensions['B'].width = 25
     writer.sheets['SNOCFreq'].column_dimensions['C'].width = 25
+    writer.save()
+
+    # find snoc  log
+    for file in files:
+        if 'gpu' in file:
+            gpu_freq_file = file
+            print 'gpu log is ' + gpu_freq_file
+
+    gpu_freq_data = [];
+
+    with open(os.getcwd() + '/' + 'data/tmp/' + gpu_freq_file) as f:
+        for line in f.readlines():
+            gpu_freq_tmp_data = line.split(':');
+            if gpu_freq_tmp_data.__len__() != 2:
+                continue
+            time = gpu_freq_tmp_data[0];
+            freq = gpu_freq_tmp_data[1];
+
+            gpu_freq_data.append((int(time), int(freq)));
+
+    gpu_freq = DataFrame(gpu_freq_data, columns=['time', 'freq'])
+    gpu_freq.to_excel(writer, sheet_name='GpuFreq')
+    writer.sheets['GpuFreq'].column_dimensions['B'].width = 25
+    writer.sheets['GpuFreq'].column_dimensions['C'].width = 25
     writer.save()

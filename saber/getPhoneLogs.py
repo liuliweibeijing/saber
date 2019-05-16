@@ -33,6 +33,11 @@ if __name__ == '__main__':
         os.system('adb push ./toolsForAndroid/snoc_clock_read.sh /system/bin/')
         os.system('adb shell chmod a+x /system/bin/snoc_clock_read.sh')
 
+    status = os.system('adb shell ls /system/bin/ |grep -i gpu_clock_read.sh')
+    if status != 0:
+        os.system('adb push ./toolsForAndroid/gpu_clock_read.sh /system/bin/')
+        os.system('adb shell chmod a+x /system/bin/gpu_clock_read.sh')
+
     # clear /data/local/tmp/
     # ddr freq analysis
 
@@ -46,6 +51,7 @@ if __name__ == '__main__':
     os.system(CMD)
     os.system('adb shell ./system/bin/ddr_clock_read.sh -i 1 -t ' + args.time + ' -o & ')
     os.system('adb shell ./system/bin/snoc_clock_read.sh -i 1 -t ' + args.time + ' -o & ')
+    os.system('adb shell ./system/bin/gpu_clock_read.sh -i 1 -t ' + args.time + ' -o & ')
 
     # wait for data is out
     time.sleep(int(args.time) + 20 )

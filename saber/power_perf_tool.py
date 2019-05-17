@@ -35,6 +35,11 @@ SYSTRACE_FILE =ABS_DIR + '/' + 'systrace.html'
 
 ############################### cpu config. wo need check################################
 
+def execCmd(cmd):
+    r = os.popen(cmd)
+    text = r.read()
+    r.close()
+    return text
 
 def sim_busy_all_clusters(trace):
     """
@@ -63,6 +68,9 @@ if __name__ == '__main__':
                         help='hope to capture how long logs')
 
     args = parser.parse_args()
+
+    #get phone config
+    os.system('python getPhoneConfig.py')
 
     #get all logs for analysis
     os.system('python getPhoneLogs.py -t ' + args.time)
@@ -292,3 +300,33 @@ if __name__ == '__main__':
     writer.sheets['GpuFreq'].column_dimensions['B'].width = 25
     writer.sheets['GpuFreq'].column_dimensions['C'].width = 25
     writer.save()
+
+    # governor config
+    txt = execCmd('adb shell ls /sys/devices/system/cpu/cpufreq/')
+    policys = txt.split()
+
+    governorTmp = {}
+    governorConfig = {}
+    for policy in policys:
+        txt = execCmd('adb shell ls /sys/devices/system/cpu/cpufreq/' + policy)
+        subs = txt.split()
+        for sub in subs:
+            if 'stats' in sub:
+                continue
+            if 'schedutil' in sub:
+                txt = execCmd('adb shell ls /sys/devices/system/cpu/cpufreq/' + policy + '/' + sub)
+                schedutilDirs = txt.split()
+                for schedutilDir in schedutilDirs:
+                    content = execCmd(
+                        'adb shell cat /sys/devices/system/cpu/cpufreq/' + policy + '/schedutil/' + schedutilDir)
+                    governorTmp['schedutil_' + schedutilDir] = content.strip('\n')
+                continue
+
+            content = execCmd('adb shell cat /sys/devices/system/cpu/cpufreq/' + policy + '/' + sub)
+            governorTmp[sub] = content.strip('\n')
+        tmp = DataFrame(data=governorTmp.values(), index=governorTmp.keys())
+        tmp.to_excel(writer, sheet_name='Governor_' + policy)
+        writer.sheets['Governor_' + policy].column_dimensions['A'].width = 35
+        writer.sheets['Governor_' + policy].column_dimensions['B'].width = 35
+        writer.save()
+        governorConfig[policy] = governorTmp

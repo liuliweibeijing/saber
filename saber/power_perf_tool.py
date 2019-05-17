@@ -330,3 +330,24 @@ if __name__ == '__main__':
         writer.sheets['Governor_' + policy].column_dimensions['B'].width = 35
         writer.save()
         governorConfig[policy] = governorTmp
+
+    # schedule config
+    txt = execCmd('adb shell ls /proc/sys/kernel/')
+    subs = txt.split()
+    schedDirs = []
+    for sub in subs :
+        if 'sched' in sub:
+            if 'sched_domain' in sub:
+                continue
+            schedDirs.append(sub)
+
+    scheduConfig = {}
+    for schedsub in schedDirs:
+        txt = execCmd('adb shell cat /proc/sys/kernel/' + schedsub)
+        scheduConfig[schedsub] = txt.strip('\n')
+    temSched = DataFrame(data=scheduConfig.values(), index=scheduConfig.keys())
+    temSched.to_excel(writer, sheet_name='Schedule')
+    writer.sheets['Schedule'].column_dimensions['A'].width = 35
+    writer.sheets['Schedule'].column_dimensions['B'].width = 35
+    writer.save()
+

@@ -1,5 +1,6 @@
 import glob
 import os
+import types
 import sys
 import ftrace
 import argparse
@@ -14,19 +15,6 @@ import time
 
 
 ############################### cpu config. wo need check################################
-CLUSTER_CFG = ['LITTLE', 'BIG', 'SUPPER']
-CLUSTER_CORE_MASK = [0X0F, 0X70, 0X80]
-CLUSTER_AVAILABLE_FREQS = \
-    {
-        'LITTLE':[300000, 403200, 499200, 576000, 672000, 768000, 844800, 940800, 1036800, 1113600, 1209600,1305600, 1382400, 1478400, 1555200, 1632000, 1708800, 1785600],
-        'BIG':[710400, 825600, 940800, 1056000, 1171200, 1286400, 1401600, 1497600, 1612800, 1708800, 1804800, 1920000, 2016000, 2131200, 2227200, 2323200, 2419200],
-        'SUPPER':[825600, 940800, 1056000, 1171200, 1286400, 1401600, 1497600, 1612800, 1708800, 1804800, 1920000, 2016000, 2131200, 2227200, 2323200, 2419200, 2534400, 2649600, 2745600, 2841600]
-     }
-
-LITTLE_CPUS = ftrace.common.unpack_bitmap(CLUSTER_CORE_MASK[CLUSTER_CFG.index('LITTLE')])
-BIG_CPUS = ftrace.common.unpack_bitmap(CLUSTER_CORE_MASK[CLUSTER_CFG.index('BIG')])
-SUPPER_CPUS = ftrace.common.unpack_bitmap(CLUSTER_CORE_MASK[CLUSTER_CFG.index('SUPPER')])
-ALL_CPUS = (LITTLE_CPUS.union(BIG_CPUS)).union(SUPPER_CPUS)
 
 ABS_DIR = os.getcwd() + '/' + 'OUT'
 
@@ -70,7 +58,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     #get phone config
-    os.system('python getPhoneConfig.py')
+    #os.system('python getPhoneConfig.py')
 
     #get all logs for analysis
     os.system('python getPhoneLogs.py -t ' + args.time)
@@ -83,11 +71,33 @@ if __name__ == '__main__':
 
     total_duration = trace.duration
 
+
+    txt = execCmd('adb shell ls /sys/devices/system/cpu/cpufreq/')
+    policys = txt.split()
+
+    CLUSTER_CFG = []
+    CLUSTER_RELATED_CPUS = {}
+    CLUSTER_AVAILABLE_FREQS = {}
+    ALL_CPUS = set()
+    for policy in policys:
+        related_cpus = execCmd('adb shell cat /sys/devices/system/cpu/cpufreq/' + policy + '/related_cpus')
+        # relative cpus for cluster
+        CLUSTER_RELATED_CPUS[policy] = set();
+        for cpu in (related_cpus.strip('\n').split()):
+            CLUSTER_RELATED_CPUS[policy].add(int(cpu))
+            ALL_CPUS.add(int(cpu))
+
+        CLUSTER_CFG.append(policy)
+        available_freqs = execCmd('adb shell cat /sys/devices/system/cpu/cpufreq/' + policy + '/scaling_available_frequencies')
+        CLUSTER_AVAILABLE_FREQS[policy] = set()
+        for freq in available_freqs.strip('\n').split():
+            CLUSTER_AVAILABLE_FREQS[policy].add(int(freq))
+
+        CLUSTER_RELATED_CPUS[policy]=sorted(CLUSTER_RELATED_CPUS[policy])
+        CLUSTER_AVAILABLE_FREQS[policy]=sorted(CLUSTER_AVAILABLE_FREQS[policy])
+
     # Multi-core usage
     sb_all = DataFrame(columns=ALL_CPUS)
-    arrays = [['SUPPER']*2 + ['BIG']*4 + ['LITTLE']*5, range(2) + range(4) + range(5)]
-    multi_index = MultiIndex.from_tuples(list(zip(*arrays)), names=['cluster', 'num_cores'])
-    sb_by_cluster = DataFrame(index=multi_index)
 
     # Freq
     df_freq = DataFrame(index = ALL_CPUS)
@@ -133,7 +143,7 @@ if __name__ == '__main__':
         writer.save()
 
     # LPM
-    for cpu in range(8):
+    for cpu in ALL_CPUS:
         for lpm in trace.cpu.lpm_intervals(cpu=cpu, interval=None):
             df_lpm.loc[cpu, LPM_states[lpm.state]] += lpm.interval.duration
         # accounting for time in idle loop.
@@ -145,18 +155,31 @@ if __name__ == '__main__':
 
     # Multi-core usage
     sb_all.loc[trace.filename] = sim_busy_all_clusters(trace)
-    supper_sim_usage = sim_busy_by_clusters(trace, cpus=SUPPER_CPUS)
-    big_sim_usage = sim_busy_by_clusters(trace, cpus=BIG_CPUS)
-    little_sim_usage = sim_busy_by_clusters(trace, cpus=LITTLE_CPUS)
+    sb_all.to_excel(writer, sheet_name='summary_all_cluster')
+    writer.save()
 
-    merged = supper_sim_usage.append(big_sim_usage)
-    merged = merged.append(little_sim_usage)
+    cluster_usage = []
+    arrays_a = []
+    arrays_b = []
+    for idx in range(0, len(CLUSTER_CFG)) :
+        if CLUSTER_CFG[idx] in CLUSTER_RELATED_CPUS.keys():
+            RELATER_CPUS_SET = CLUSTER_RELATED_CPUS.get(CLUSTER_CFG[idx])
+            RELATER_CPUS_SET_SORTS = sorted(RELATER_CPUS_SET)
+        cluster_usage.append(sim_busy_by_clusters(trace, cpus=RELATER_CPUS_SET_SORTS))
+        arrays_a.extend([CLUSTER_CFG[idx]]*(len(RELATER_CPUS_SET_SORTS) + 1))
+        arrays_b.extend(range(len(RELATER_CPUS_SET_SORTS) + 1))
+
+    arrays = [arrays_a, arrays_b]
+    multi_index = MultiIndex.from_tuples(list(zip(*arrays)), names=['cluster', 'num_cores'])
+    sb_by_cluster = DataFrame(index=multi_index)
+
+    merged = cluster_usage[1].append(cluster_usage[0])
     merged.index = multi_index
+
     sb_by_cluster['usage'] = merged
     sb_by_cluster.to_excel(writer, sheet_name='summary_by_cluster')
     writer.save()
-    sb_all.to_excel(writer, sheet_name='summary_all_cluster')
-    writer.save()
+
 
     for clk in trace.clock.names:
         for clk_event in trace.clock.clock_intervals(clock=clk, state=ftrace.clock.ClockState.ENABLED, interval=None):
@@ -204,29 +227,15 @@ if __name__ == '__main__':
 
     #parse_core_frequencies
 
-    FREQ_ALL_CORES_RAW = [300000, 403200, 499200, 576000, 672000, 768000, 844800, 940800, 1036800, 1113600, 1209600,
-                          1305600, 1382400, 1478400, 1555200, 1632000, 1708800, 1785600
-        , 710400, 825600, 940800, 1056000, 1171200, 1286400, 1401600, 1497600, 1612800, 1708800, 1804800, 1920000,
-                          2016000, 2131200, 2227200, 2323200, 2419200
-        , 825600, 940800, 1056000, 1171200, 1286400, 1401600, 1497600, 1612800, 1708800, 1804800, 1920000, 2016000,
-                          2131200, 2227200, 2323200, 2419200, 2534400, 2649600, 2745600, 2841600]
-
-    FREQ_ALL_CORES = []
-    for i in FREQ_ALL_CORES_RAW:
-        if not i in FREQ_ALL_CORES:
-            FREQ_ALL_CORES.append(i)
-    FREQ_ALL_CORES.sort()
-
-    df_freq = DataFrame(index=ALL_CPUS, columns=FREQ_ALL_CORES)
-
-    df_freq.fillna(0, inplace=True)
-    for cpu in ALL_CPUS:
-        for busy_interval in trace.cpu.busy_intervals(cpu=cpu):
-
-            for freq in trace.cpu.frequency_intervals(cpu=cpu, interval=busy_interval.interval):
-                df_freq.loc[cpu, freq.frequency] += freq.interval.duration
-    df_freq.to_excel(writer, sheet_name='CoreFreqStats')
-    writer.save()
+    for cluster in CLUSTER_CFG :
+        df_freq = DataFrame(index=CLUSTER_RELATED_CPUS[cluster], columns=CLUSTER_AVAILABLE_FREQS[cluster])
+        df_freq.fillna(0, inplace=True)
+        for cpu in CLUSTER_RELATED_CPUS[cluster]:
+            for busy_interval in trace.cpu.busy_intervals(cpu=cpu):
+                for freq in trace.cpu.frequency_intervals(cpu=cpu, interval=busy_interval.interval):
+                    df_freq.loc[cpu, freq.frequency] += freq.interval.duration
+            df_freq.to_excel(writer, sheet_name='CoreFreqStats' + cluster)
+            writer.save()
 
     # find ddr log
     files = os.listdir('./data/tmp/')

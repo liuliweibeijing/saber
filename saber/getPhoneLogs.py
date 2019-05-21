@@ -6,6 +6,7 @@ import argparse
 import time
 from ftrace import Ftrace, Interval
 from pandas import Series
+from saber_common import execCmd
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='get atrace/ddr/gpu/snoc logs')
@@ -25,7 +26,17 @@ if __name__ == '__main__':
 
     status = os.system('adb shell ls /system/bin/ |grep -i ddr_clock_read.sh')
     if status != 0:
-        os.system('adb push ./toolsForAndroid/ddr_clock_read.sh    /system/bin/')
+        txt = execCmd('adb push ./toolsForAndroid/ddr_clock_read.sh    /system/bin/')
+        if 'Read-only file system' in txt:
+            txt = execCmd('adb root')
+            print txt
+            txt = execCmd('adb disable-verity')
+            print txt
+            os.system('adb reboot')
+            time.sleep(60)
+            os.system('adb root')
+            os.system('adb remount')
+            txt = execCmd('adb push ./toolsForAndroid/ddr_clock_read.sh    /system/bin/')
         os.system('adb shell chmod a+x /system/bin/ddr_clock_read.sh')
 
     status = os.system('adb shell ls /system/bin/ |grep -i snoc_clock_read.sh')

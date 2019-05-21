@@ -1,4 +1,3 @@
-import glob
 import os
 import types
 import sys
@@ -12,7 +11,12 @@ import openpyxl
 from openpyxl import load_workbook
 from openpyxl.styles import Font, colors, Alignment, numbers
 import time
-
+from saber_common  import execCmd
+from getPhoneConfig import init_phone_config
+from getPhoneConfig import get_cluster_config
+from getPhoneConfig import get_cluster_related_cpus
+from getPhoneConfig import get_available_freqs
+from getPhoneConfig import get_all_cpus
 
 ############################### cpu config. wo need check################################
 
@@ -23,11 +27,6 @@ SYSTRACE_FILE =ABS_DIR + '/' + 'systrace.html'
 
 ############################### cpu config. wo need check################################
 
-def execCmd(cmd):
-    r = os.popen(cmd)
-    text = r.read()
-    r.close()
-    return text
 
 def sim_busy_all_clusters(trace):
     """
@@ -70,31 +69,13 @@ if __name__ == '__main__':
         exit(1)
 
     total_duration = trace.duration
+    print 'trace.duration is ' + str(trace.duration)
 
-
-    txt = execCmd('adb shell ls /sys/devices/system/cpu/cpufreq/')
-    policys = txt.split()
-
-    CLUSTER_CFG = []
-    CLUSTER_RELATED_CPUS = {}
-    CLUSTER_AVAILABLE_FREQS = {}
-    ALL_CPUS = set()
-    for policy in policys:
-        related_cpus = execCmd('adb shell cat /sys/devices/system/cpu/cpufreq/' + policy + '/related_cpus')
-        # relative cpus for cluster
-        CLUSTER_RELATED_CPUS[policy] = set();
-        for cpu in (related_cpus.strip('\n').split()):
-            CLUSTER_RELATED_CPUS[policy].add(int(cpu))
-            ALL_CPUS.add(int(cpu))
-
-        CLUSTER_CFG.append(policy)
-        available_freqs = execCmd('adb shell cat /sys/devices/system/cpu/cpufreq/' + policy + '/scaling_available_frequencies')
-        CLUSTER_AVAILABLE_FREQS[policy] = set()
-        for freq in available_freqs.strip('\n').split():
-            CLUSTER_AVAILABLE_FREQS[policy].add(int(freq))
-
-        CLUSTER_RELATED_CPUS[policy]=sorted(CLUSTER_RELATED_CPUS[policy])
-        CLUSTER_AVAILABLE_FREQS[policy]=sorted(CLUSTER_AVAILABLE_FREQS[policy])
+    #get config from phone
+    CLUSTER_CFG = get_cluster_config()
+    CLUSTER_RELATED_CPUS = get_cluster_related_cpus()
+    CLUSTER_AVAILABLE_FREQS = get_available_freqs()
+    ALL_CPUS = get_all_cpus()
 
     # Multi-core usage
     sb_all = DataFrame(columns=ALL_CPUS)
@@ -173,7 +154,12 @@ if __name__ == '__main__':
     multi_index = MultiIndex.from_tuples(list(zip(*arrays)), names=['cluster', 'num_cores'])
     sb_by_cluster = DataFrame(index=multi_index)
 
-    merged = cluster_usage[1].append(cluster_usage[0])
+    if 3 == len(CLUSTER_CFG):
+        merged = cluster_usage[1].append(cluster_usage[0])
+        merged = cluster_usage[2].append(merged)
+    if 2 == len(CLUSTER_CFG):
+        merged = cluster_usage[1].append(cluster_usage[0])
+
     merged.index = multi_index
 
     sb_by_cluster['usage'] = merged
@@ -199,8 +185,6 @@ if __name__ == '__main__':
     df_clk = df_clk/total_duration
 
     # for a
-    for indexs in df_clk.columns:
-        print df_clk[indexs]
     #df_clk.sort_values(axis=1, inplace=True)
     df_clk.to_excel(writer, sheet_name='CLOCK')
     writer.save()

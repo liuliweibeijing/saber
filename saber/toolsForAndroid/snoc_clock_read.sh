@@ -96,7 +96,6 @@ if [ "$opt" = "-o" ]; then
 			FREQ_LIST=${sdm855_fre[*]}
 		else
 			echo "xiaomi haven't this platform"
-			exit
 		fi
 	else
 		echo "this device is not Xiaomi"

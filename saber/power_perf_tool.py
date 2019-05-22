@@ -1,22 +1,16 @@
 import os
-import types
-import sys
 import ftrace
 import argparse
-from ftrace import Ftrace, Interval
+from ftrace import Ftrace
 from pandas import Series, DataFrame, MultiIndex, Timestamp
-from pandas.tseries.offsets import Micro
 import pandas as pd
-import openpyxl
 from openpyxl import load_workbook
-from openpyxl.styles import Font, colors, Alignment, numbers
 import time
 from saber_common  import execCmd
-from getPhoneConfig import init_phone_config
-from getPhoneConfig import get_cluster_config
-from getPhoneConfig import get_cluster_related_cpus
-from getPhoneConfig import get_available_freqs
-from getPhoneConfig import get_all_cpus
+from saber_common import get_cluster_config
+from saber_common import get_cluster_related_cpus
+from saber_common import get_available_freqs
+from saber_common import get_all_cpus
 
 ############################### cpu config. wo need check################################
 
@@ -24,9 +18,6 @@ ABS_DIR = os.getcwd() + '/' + 'OUT'
 
 XML_FILE_NAME = 'systrace-{DATE}.xlsx'.format(DATE=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time())))
 SYSTRACE_FILE =ABS_DIR + '/' + 'systrace.html'
-
-############################### cpu config. wo need check################################
-
 
 def sim_busy_all_clusters(trace):
     """
@@ -44,10 +35,6 @@ def sim_busy_by_clusters(trace, cpus):
     #total_duration = trace.duration if not INTERVAL else INTERVAL.duration
     return Series(data=data.values(), index=data.keys(), name=trace.filename) / total_duration
 
-def parse_file(filepath):
-    trace = Ftrace(filepath)
-    return (filepath, trace)
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Power/Performance analysis of HMP platforms!')
 
@@ -55,9 +42,6 @@ if __name__ == '__main__':
                         help='hope to capture how long logs')
 
     args = parser.parse_args()
-
-    #get phone config
-    #os.system('python getPhoneConfig.py')
 
     #get all logs for analysis
     os.system('python getPhoneLogs.py -t ' + args.time)

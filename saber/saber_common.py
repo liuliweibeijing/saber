@@ -57,3 +57,13 @@ def get_all_cpus() :
     if 0 == len(CLUSTER_CFG):
         init_phone_config()
     return ALL_CPUS
+
+def get_out_dir() :
+    ABS_DIR = os.getcwd() + '/' + 'OUT'
+    if False == os.path.exists(ABS_DIR):
+        os.mkdir(ABS_DIR)
+    return ABS_DIR
+
+def get_out_systrace_path() :
+    SYSTRACE_FILE = get_out_dir() + '/' + 'systrace.html'
+    return SYSTRACE_FILE

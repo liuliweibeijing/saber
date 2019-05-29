@@ -11,13 +11,12 @@ from saber_common import get_cluster_config
 from saber_common import get_cluster_related_cpus
 from saber_common import get_available_freqs
 from saber_common import get_all_cpus
+from saber_common import get_out_dir
+from saber_common import get_out_systrace_path
 
 ############################### cpu config. wo need check################################
 
-ABS_DIR = os.getcwd() + '/' + 'OUT'
-
 XML_FILE_NAME = 'systrace-{DATE}.xlsx'.format(DATE=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time())))
-SYSTRACE_FILE =ABS_DIR + '/' + 'systrace.html'
 
 def sim_busy_all_clusters(trace):
     """
@@ -46,8 +45,8 @@ if __name__ == '__main__':
     #get all logs for analysis
     os.system('python getPhoneLogs.py -t ' + args.time)
 
-    if os.path.exists(SYSTRACE_FILE):
-        trace = Ftrace(SYSTRACE_FILE)
+    if os.path.exists(get_out_systrace_path()):
+        trace = Ftrace(get_out_systrace_path())
     else:
         print 'error'
         exit(1)
@@ -77,11 +76,8 @@ if __name__ == '__main__':
     df_clk = DataFrame(index=trace.clock.names, columns = ['0', 'UNKNOWN'])
     df_clk.fillna(0, inplace=True)
 
-    if False == os.path.exists(ABS_DIR):
-        os.mkdir(ABS_DIR)
 
-
-    ABS_PATH = ABS_DIR + '/' + 'RESULT' + '_' + XML_FILE_NAME
+    ABS_PATH = get_out_dir() + '/' + 'RESULT' + '_' + XML_FILE_NAME
     writer = pd.ExcelWriter(ABS_PATH, engine='openpyxl')
 
     for cpu in ALL_CPUS: # assumes 8-cores

@@ -7,6 +7,7 @@ import time
 from ftrace import Ftrace, Interval
 from pandas import Series
 from saber_common import execCmd
+from saber_common import get_out_systrace_path
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='get atrace/ddr/gpu/snoc logs')
@@ -69,5 +70,6 @@ if __name__ == '__main__':
 
     # get all data for data/local/tmp
     os.system('adb pull /data/local/tmp/  ./data/')
+
     # use systrace.py to vert atrace.out to systrace.html
-    os.system('python ./toolsForAndroid/systrace/systrace.py --from-file ./data/tmp/atrace.out -o ./OUT/systrace.html')
+    os.system('python ./toolsForAndroid/systrace/systrace.py --from-file ./data/tmp/atrace.out -o ' + get_out_systrace_path())

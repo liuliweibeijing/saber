@@ -7,10 +7,14 @@ How to use saber?
 
 1 make sure you is root user on your phone.
 
-2 input command 'python power_perf_tool.py -t 5'. 5 indicate 5 seconds. of course , you can enter
+2 install ftrace python lib, pls run setup.py
+
+3 Connect your phone to your PC via usb, and make sure adb is ok.
+
+4 input command 'python power_perf_tool.py -t 5'. 5 indicate 5 seconds. of course , you can enter
 	 any other numer you want, but it's best not to exceed 20.
 
-3 you can find the final results in the OUT directory.
+5 you can find the final results in the OUT directory.
 
 this tool is builed base on ftrace as following:
 

@@ -1,3 +1,4 @@
+
 # Saber
 
 saber is one kind profile tools for android phone runtime state. include cpu runtime, ddr clk, gpu clk, schedule params and state etc.
@@ -10,7 +11,6 @@ How to use saber?
 	 any other numer you want, but it's best not to exceed 20.
 
 3 you can find the final results in the OUT directory.
-
 
 this tool is builed base on ftrace as following:
 
